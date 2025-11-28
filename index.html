@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NutriPro — Painel</title>
+
+  <!-- Paleta: Azul (#0B71FF), Branco, Cinza claro (#F5F7FA) -->
+  <style>
+    :root{
+      --blue:#0B71FF;
+      --bg:#F5F7FA;
+      --card:#FFFFFF;
+      --muted:#6B7280;
+      --radius:10px;
+      --glass: rgba(255,255,255,0.7);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:#0f172a;-webkit-font-smoothing:antialiased}
+    .app{display:flex;min-height:100vh}
+    aside{width:280px;background:var(--card);border-right:1px solid #e6e9ef;padding:20px}
+    header{background:linear-gradient(90deg,var(--blue),#0060d6);color:white;padding:18px 20px;display:flex;align-items:center;justify-content:space-between}
+    header .brand{font-weight:700;font-size:18px;letter-spacing:0.2px}
+    .main{flex:1;padding:20px}
+    .btn{background:var(--blue);color:white;padding:8px 12px;border-radius:8px;border:0;cursor:pointer}
+    .btn-ghost{background:transparent;border:1px solid #e6e9ef;padding:7px 10px;border-radius:8px}
+    .muted{color:var(--muted);font-size:13px}
+    .card{background:var(--card);border-radius:var(--radius);padding:14px;box-shadow:0 1px 4px rgba(12,20,30,0.04);margin-bottom:14px}
+    .sidebar-item{padding:10px;border-radius:8px;cursor:pointer;margin-bottom:6px;color:#0f172a}
+    .sidebar-item.active{background:linear-gradient(90deg,#eef6ff, #f8fbff);border-left:4px solid var(--blue);font-weight:600}
+    .flex{display:flex;gap:12px}
+    .col{display:flex;flex-direction:column;gap:8px}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:8px;border-bottom:1px solid #f1f3f5;text-align:left}
+    input,select,textarea{padding:8px;border-radius:8px;border:1px solid #e6e9ef;outline:none}
+    .small{font-size:12px;color:var(--muted)}
+    .badge{padding:6px 8px;border-radius:999px;background:#eef4ff;color:var(--blue);font-weight:600;font-size:12px}
+    @media(max-width:880px){
+      aside{display:none}
+      .app-single{padding:12px}
+    }
+  </style>
+
+  <!-- Bibliotecas externas (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.6.5/dist/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+  <header>
+    <div class="brand">NutriPro — Painel</div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <div class="small">Dr. Exemplo</div>
+      <button class="btn" onclick="exportAllPatients()">Exportar CSV</button>
+    </div>
+  </header>
+
+  <div class="app">
+    <aside>
+      <div style="margin-bottom:20px">
+        <div style="font-weight:700">NutriPro</div>
+        <div class="small">Painel do nutricionista</div>
+      </div>
+
+      <div id="menu">
+        <div class="sidebar-item active" data-route="dashboard">Dashboard</div>
+        <div class="sidebar-item" data-route="patients">Pacientes</div>
+        <div class="sidebar-item" data-route="plan-editor">Criar Plano</div>
+        <div class="sidebar-item" data-route="food-library">Biblioteca (ex: TACO)</div>
+        <div class="sidebar-item" data-route="measurements">Acompanhamento</div>
+        <div class="sidebar-item" data-route="appointments">Consultas</div>
+        <div class="sidebar-item" data-route="chat">Chat</div>
+        <div class="sidebar-item" data-route="settings">Configurações</div>
+      </div>
+
+      <div style="margin-top:18px">
+        <div class="small">Cor do site</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <div style="width:28px;height:28px;border-radius:6px;background:var(--blue)"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:var(--card);border:1px solid #e6e9ef"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:var(--bg);border:1px solid #e6e9ef"></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- Dashboard -->
+      <section id="dashboard" class="view">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <h2 style="margin:0">Dashboard</h2>
+            <div class="small">Visão geral rápida</div>
+          </div>
+          <div>
+            <button class="btn-ghost" onclick="loadSampleData()">Carregar Exemplo</button>
+            <button class="btn" onclick="navigate('patients')">Gerenciar Pacientes</button>
+          </div>
+        </div>
+
+        <div class="flex" style="flex-wrap:wrap">
+          <div class="card" style="flex:1;min-width:220px">
+            <div class="small">Pacientes</div>
+            <div style="font-size:22px;font-weight:700" id="stat-patients">0</div>
+          </div>
+          <div class="card" style="flex:1;min-width:220px">
+            <div class="small">Planos ativos</div>
+            <div style="font-size:22px;font-weight:700" id="stat-plans">0</div>
+          </div>
+          <div class="card" style="flex:1;min-width:220px">
+            <div class="small">Última alteração</div>
+            <div style="font-size:16px" id="stat-last">-</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px" class="card">
+          <h3 style="margin-top:0">Últimos Planos</h3>
+          <table id="recent-plans">
+            <thead><tr><th>Paciente</th><th>Tipo</th><th>Data</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Pacientes -->
+      <section id="patients" class="view" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <h2 style="margin:0">Pacientes</h2>
+            <div class="small">Cadastre e gerencie pacientes</div>
+          </div>
+          <div>
+            <button class="btn" onclick="openPatientForm()">+ Novo paciente</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <table id="patients-table">
+            <thead><tr><th>Nome</th><th>Idade</th><th>Peso atual</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- Modal: form -->
+        <div id="patient-modal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.5);align-items:center;justify-content:center">
+          <div style="background:var(--card);padding:18px;border-radius:12px;min-width:300px;max-width:520px">
+            <h3 id="patient-modal-title">Novo paciente</h3>
+            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+              <input id="p-name" placeholder="Nome completo" />
+              <input id="p-age" type="number" placeholder="Idade" />
+              <input id="p-weight" type="number" placeholder="Peso atual (kg)" />
+              <textarea id="p-notes" rows="3" placeholder="Anotações (alergias, restrições)"></textarea>
+              <div style="display:flex;gap:8px;justify-content:flex-end">
+                <button class="btn-ghost" onclick="closePatientForm()">Cancelar</button>
+                <button class="btn" onclick="savePatient()">Salvar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Criar Plano -->
+      <section id="plan-editor" class="view" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <h2 style="margin:0">Criar / Editar Plano</h2>
+            <div class="small">Monte refeições, adicione alimentos e gere o PDF</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <select id="plan-patient-select"></select>
+            <button class="btn-ghost" onclick="savePlanDraft()">Salvar rascunho</button>
+            <button class="btn" onclick="generatePlanPDF()">Gerar PDF</button>
+          </div>
+        </div>
+
+        <div class="flex" style="gap:12px;align-items:flex-start">
+          <div style="flex:1">
+            <div id="meals-list"></div>
+            <button class="btn-ghost" onclick="addMeal()">+ Adicionar refeição</button>
+          </div>
+
+          <div style="width:360px">
+            <div class="card">
+              <h4 style="margin:0">Biblioteca de alimentos (busca rápida)</h4>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <input id="food-search" placeholder="Ex: arroz, frango" />
+                <button class="btn" onclick="searchFoods()">Buscar</button>
+              </div>
+              <div id="food-results" style="max-height:260px;overflow:auto;margin-top:8px"></div>
+            </div>
+
+            <div class="card" style="margin-top:8px">
+              <h4 style="margin:0">Resumo de macros</h4>
+              <div style="margin-top:8px" id="macros-summary">Kcal: 0 · C:0g · P:0g · G:0g</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Biblioteca -->
+      <section id="food-library" class="view" style="display:none">
+        <h2>Biblioteca de Alimentos (TACO - exemplo)</h2>
+        <div class="small">Use a Tabela TACO para popular esta tabela. Aqui temos exemplos.</div>
+        <div class="card" style="margin-top:8px">
+          <table id="food-table">
+            <thead><tr><th>Nome</th><th>Porção</th><th>kcal</th><th>Carb</th><th>Prot</th><th>Gord</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div style="margin-top:8px;display:flex;justify-content:flex-end">
+            <button class="btn-ghost" onclick="importTacoSample()">Importar TACO (exemplo)</button>
+            <button class="btn" onclick="openAddFood()">Adicionar alimento</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Acompanhamento -->
+      <section id="measurements" class="view" style="display:none">
+        <h2>Acompanhamento</h2>
+        <div class="small">Registre peso e medidas; visualize evolução.</div>
+
+        <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
+          <div class="card" style="flex:1;min-width:320px">
+            <h4>Registrar evolução</h4>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <select id="evo-patient-select"></select>
+              <input id="evo-date" type="date" />
+              <input id="evo-weight" type="number" placeholder="Peso (kg)" />
+              <button class="btn" onclick="saveEvolution()">Salvar</button>
+            </div>
+            <div style="margin-top:8px" id="evo-last" class="small"></div>
+          </div>
+
+          <div class="card" style="flex:2;min-width:320px">
+            <h4>Evolução de peso</h4>
+            <canvas id="evo-chart" style="max-height:240px"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Appointments -->
+      <section id="appointments" class="view" style="display:none">
+        <h2>Consultas (Agenda)</h2>
+        <div class="card">
+          <div style="display:flex;gap:8px">
+            <select id="appt-patient-select"></select>
+            <input id="appt-date" type="datetime-local" />
+            <button class="btn" onclick="saveAppointment()">Agendar</button>
+          </div>
+          <div style="margin-top:12px">
+            <table id="appointments-table"><thead><tr><th>Paciente</th><th>Data</th><th></th></tr></thead><tbody></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Chat -->
+      <section id="chat" class="view" style="display:none">
+        <h2>Chat</h2>
+        <div class="card">
+          <div id="chat-box" style="height:260px;overflow:auto;background:#fbfdff;padding:8px;border-radius:8px">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <select id="chat-patient-select"></select>
+            <input id="chat-msg" placeholder="Mensagem..." />
+            <button class="btn" onclick="sendMessage()">Enviar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section id="settings" class="view" style="display:none">
+        <h2>Configurações</h2>
+        <div class="card"><div class="small">Aqui você integrará autenticação, pagamentos e logs (backend necessário).</div></div>
+      </section>
+
+      <!-- Add Food Modal (simple) -->
+      <div id="food-modal" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.45);align-items:center;justify-content:center">
+        <div style="background:var(--card);padding:16px;border-radius:12px;min-width:320px">
+          <h3>Adicionar alimento</h3>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+            <input id="food-name" placeholder="Nome" />
+            <input id="food-portion" placeholder="Porção (ex: 100g)" />
+            <input id="food-kcal" type="number" placeholder="kcal" />
+            <input id="food-carb" type="number" placeholder="Carboidratos (g)" />
+            <input id="food-prot" type="number" placeholder="Proteínas (g)" />
+            <input id="food-fat" type="number" placeholder="Gorduras (g)" />
+            <div style="display:flex;justify-content:flex-end;gap:8px">
+              <button class="btn-ghost" onclick="closeAddFood()">Cancelar</button>
+              <button class="btn" onclick="saveFood()">Salvar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+<script>
+/* ========== Simple client-side "DB" using localStorage ========== */
+const STORE_KEY = 'nutripro_store_v1';
+
+function loadStore(){
+  const raw = localStorage.getItem(STORE_KEY);
+  if(!raw){
+    const init = { patients:[], foods:[], plans:[], evolutions:[], appointments:[], messages:[] };
+    localStorage.setItem(STORE_KEY, JSON.stringify(init));
+    return init;
+  }
+  return JSON.parse(raw);
+}
+function saveStore(s){ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }
+
+/* ========== Navigation ========== */
+document.querySelectorAll('#menu .sidebar-item').forEach(it=>{
+  it.addEventListener('click', ()=> {
+    document.querySelectorAll('#menu .sidebar-item').forEach(x=>x.classList.remove('active'));
+    it.classList.add('active');
+    navigate(it.dataset.route);
+  });
+});
+function navigate(route){
+  document.querySelectorAll('.view').forEach(v=> v.style.display = 'none');
+  const el = document.getElementById(route);
+  if(el) el.style.display = '';
+  // update stats if needed
+  renderAll();
+}
+
+/* ========== Patients ========== */
+function openPatientForm(){
+  document.getElementById('patient-modal').style.display = 'flex';
+  document.getElementById('patient-modal-title').innerText = 'Novo paciente';
+  document.getElementById('p-name').value = '';
+  document.getElementById('p-age').value = '';
+  document.getElementById('p-weight').value = '';
+  document.getElementById('p-notes').value = '';
+}
+function closePatientForm(){ document.getElementById('patient-modal').style.display = 'none'; }
+
+function savePatient(){
+  const store = loadStore();
+  const name = document.getElementById('p-name').value.trim();
+  if(!name) return alert('Nome obrigatório');
+  const age = parseInt(document.getElementById('p-age').value||0);
+  const weight = parseFloat(document.getElementById('p-weight').value||0);
+  const notes = document.getElementById('p-notes').value||'';
+  const id = Date.now();
+  store.patients.push({ id, name, age, weight, notes, createdAt: new Date().toISOString() });
+  saveStore(store);
+  closePatientForm();
+  renderAll();
+}
+
+/* ========== Foods (library) ========== */
+function importTacoSample(){
+  const sample = [
+    { id:Date.now()+1, name:'Arroz branco (100g)', portion:'100g', kcal:130, carb:28, prot:2.7, fat:0.3 },
+    { id:Date.now()+2, name:'Peito de frango grelhado (100g)', portion:'100g', kcal:165, carb:0, prot:31, fat:3.6 },
+    { id:Date.now()+3, name:'Banana prata (100g)', portion:'100g', kcal:89, carb:23, prot:1.1, fat:0.3 },
+  ];
+  const store = loadStore();
+  store.foods.push(...sample);
+  saveStore(store);
+  renderAll();
+}
+
+function openAddFood(){ document.getElementById('food-modal').style.display = 'flex'; }
+function closeAddFood(){ document.getElementById('food-modal').style.display = 'none'; }
+function saveFood(){
+  const store = loadStore();
+  const f = {
+    id: Date.now(),
+    name: document.getElementById('food-name').value || 'Sem nome',
+    portion: document.getElementById('food-portion').value || '100g',
+    kcal: parseFloat(document.getElementById('food-kcal').value||0),
+    carb: parseFloat(document.getElementById('food-carb').value||0),
+    prot: parseFloat(document.getElementById('food-prot').value||0),
+    fat: parseFloat(document.getElementById('food-fat').value||0)
+  };
+  store.foods.push(f);
+  saveStore(store);
+  closeAddFood();
+  renderAll();
+}
+
+function searchFoods(){
+  const q = document.getElementById('food-search').value.toLowerCase().trim();
+  const store = loadStore();
+  const results = store.foods.filter(f => f.name.toLowerCase().includes(q));
+  const div = document.getElementById('food-results');
+  div.innerHTML = results.map(f=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid #f1f3f5">
+      <div>
+        <div style="font-weight:600">${f.name}</div>
+        <div class="small">${f.kcal} kcal · P:${f.prot}g · C:${f.carb}g</div>
+      </div>
+      <div>
+        <button class="btn-ghost" onclick='addFoodToMeal(${f.id})'>Adicionar</button>
+      </div>
+    </div>
+  `).join('') || '<div class="small" style="padding:8px;color:var(--muted)">Nenhum resultado</div>';
+}
+
+/* ========== Plan Editor ========== */
+let currentMeals = [];
+function addMeal(name){
+  const id = Date.now();
+  currentMeals.push({ id, name: name || `Refeição ${currentMeals.length+1}`, items: [] });
+  renderMeals();
+}
+function renderMeals(){
+  const el = document.getElementById('meals-list');
+  if(!el) return;
+  el.innerHTML = currentMeals.map(m=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:700">${m.name}</div>
+        <div class="small">Kcal: ${mealKcal(m).toFixed(0)}</div>
+      </div>
+      <table style="margin-top:8px">
+        <thead><tr><th>Alimento</th><th>Porção</th><th>kcal</th><th></th></tr></thead>
+        <tbody>
+          ${m.items.map(it=>`<tr><td>${it.name}</td><td>${it.qty}</td><td>${it.kcal}</td><td><button class="btn-ghost" onclick="removeItem(${m.id},'${it.uid}')">Remover</button></td></tr>`).join('')}
+          ${m.items.length===0 ? '<tr><td class="small" colspan="4">Nenhum alimento</td></tr>' : ''}
+        </tbody>
+      </table>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn-ghost" onclick='showAddFoodToMeal(${m.id})'>Adicionar alimento</button>
+      </div>
+    </div>
+  `).join('');
+  updateMacrosSummary();
+}
+function mealKcal(m){
+  return m.items.reduce((s,it)=>s + (it.kcal||0),0);
+}
+function updateMacrosSummary(){
+  const total = currentMeals.flatMap(m=>m.items).reduce((s,it)=>{
+    s.kcal += (it.kcal||0);
+    s.c += (it.carb||0);
+    s.p += (it.prot||0);
+    s.f += (it.fat||0);
+    return s;
+  }, {kcal:0,c:0,p:0,f:0});
+  document.getElementById('macros-summary').innerText = `Kcal: ${total.kcal.toFixed(0)} · C:${total.c.toFixed(1)}g · P:${total.p.toFixed(1)}g · G:${total.f.toFixed(1)}g`;
+}
+function showAddFoodToMeal(mealId){
+  // quick prompt to choose existing food and qty
+  const store = loadStore();
+  const name = prompt('Digite parte do nome do alimento para buscar (ex: arroz)');
+  if(!name) return;
+  const found = store.foods.filter(f => f.name.toLowerCase().includes(name.toLowerCase()));
+  if(found.length===0){ alert('Nenhum alimento encontrado'); return; }
+  const pick = found[0]; // choose first match for simplicity
+  const qty = prompt(`Porção (ex: 100g) — valor padrão: ${pick.portion}`, pick.portion) || pick.portion;
+  addFoodToMealByData(mealId, { ...pick, qty, uid: 'u'+Date.now() });
+}
+function addFoodToMeal(foodId){
+  const store = loadStore();
+  const f = store.foods.find(x=>x.id===foodId);
+  if(!f) return alert('Alimento não encontrado');
+  // add to first meal by default
+  if(currentMeals.length===0) addMeal();
+  addFoodToMealByData(currentMeals[0].id, { ...f, qty: f.portion, uid: 'u'+Date.now() });
+}
+function addFoodToMealByData(mealId, data){
+  currentMeals = currentMeals.map(m => m.id===mealId ? {...m, items: [...m.items, data]} : m);
+  renderMeals();
+}
+function removeItem(mealId, uid){
+  currentMeals = currentMeals.map(m => m.id===mealId ? {...m, items: m.items.filter(i=>i.uid!==uid)} : m);
+  renderMeals();
+}
+
+/* ========== Saving plans (client-side) ========== */
+function savePlanDraft(){
+  const store = loadStore();
+  const pid = document.getElementById('plan-patient-select').value;
+  if(!pid) return alert('Selecione paciente');
+  const plan = { id: Date.now(), patientId: parseInt(pid), meals: currentMeals, createdAt: new Date().toISOString() };
+  store.plans.push(plan);
+  saveStore(store);
+  alert('Rascunho salvo');
+  renderAll();
+}
+
+/* ========== Generate PDF (jsPDF + AutoTable) ========== */
+async function generatePlanPDF(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'pt', format:'a4' });
+  const patientId = parseInt(document.getElementById('plan-patient-select').value || 0);
+  const store = loadStore();
+  const patient = store.patients.find(p=>p.id===patientId) || {name:'Paciente'};
+  doc.setFontSize(16);
+  doc.text('Plano Alimentar — NutriPro', 40, 50);
+  doc.setFontSize(12);
+  doc.text(`Paciente: ${patient.name}`, 40, 72);
+  doc.text(`Data: ${new Date().toLocaleDateString()}`, 40, 88);
+
+  // Build table data
+  const rows = [];
+  currentMeals.forEach(meal=>{
+    rows.push([meal.name, '', '', '']);
+    meal.items.forEach(it=>{
+      rows.push(['  '+it.name, it.qty || '', (it.kcal||0).toFixed(0), `P:${(it.prot||0)}g`]);
+    });
+  });
+
+  doc.autoTable({
+    startY: 110,
+    head: [['Refeição / Alimento','Porção','kcal','Obs']],
+    body: rows,
+    styles:{fontSize:10}
+  });
+  doc.save(`Plano_${patient.name.replace(/\s+/g,'_')}.pdf`);
+}
+
+/* ========== Evolution (chart) ========== */
+let evoChart;
+function saveEvolution(){
+  const pid = parseInt(document.getElementById('evo-patient-select').value || 0);
+  const date = document.getElementById('evo-date').value;
+  const weight = parseFloat(document.getElementById('evo-weight').value || 0);
+  if(!pid || !date || !weight) return alert('Preencha paciente, data e peso');
+  const store = loadStore();
+  store.evolutions.push({ id: Date.now(), patientId: pid, date, weight });
+  saveStore(store);
+  renderAll();
+}
+function renderEvolutionChart(){
+  const ctx = document.getElementById('evo-chart').getContext('2d');
+  const store = loadStore();
+  const pid = parseInt(document.getElementById('evo-patient-select').value || 0);
+  const data = store.evolutions.filter(e=>e.patientId===pid).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const labels = data.map(d=>d.date);
+  const values = data.map(d=>d.weight);
+  if(evoChart) evoChart.destroy();
+  evoChart = new Chart(ctx, { type:'line', data:{labels, datasets:[{label:'Peso (kg)', data:values, fill:false}]}, options:{responsive:true, maintainAspectRatio:false} });
+}
+
+/* ========== Appointments ========== */
+function saveAppointment(){
+  const pid = parseInt(document.getElementById('appt-patient-select').value || 0);
+  const dt = document.getElementById('appt-date').value;
+  if(!pid || !dt) return alert('Preencha paciente e data');
+  const store = loadStore();
+  store.appointments.push({ id:Date.now(), patientId:pid, datetime:dt });
+  saveStore(store);
+  renderAll();
+}
+
+/* ========== Chat (stub) ========== */
+function sendMessage(){
+  const pid = parseInt(document.getElementById('chat-patient-select').value || 0);
+  const txt = document.getElementById('chat-msg').value.trim();
+  if(!pid || !txt) return;
+  const store = loadStore();
+  store.messages.push({ id:Date.now(), patientId: pid, from: 'nutri', text: txt, createdAt: new Date().toISOString() });
+  saveStore(store);
+  document.getElementById('chat-msg').value = '';
+  renderAll();
+}
+
+/* ========== Export CSV of patients ========== */
+function exportAllPatients(){
+  const store = loadStore();
+  const csv = ['id,name,age,weight,notes,createdAt', ...store.patients.map(p=>`${p.id},"${p.name}",${p.age},${p.weight},"${(p.notes||'').replace(/"/g,'""')}",${p.createdAt}`)].join('\\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'patients.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ========== Render all UI elements from store ========== */
+function renderAll(){
+  const store = loadStore();
+  // stats
+  document.getElementById('stat-patients').innerText = store.patients.length;
+  document.getElementById('stat-plans').innerText = store.plans.length;
+  document.getElementById('stat-last').innerText = store.plans.length ? new Date(store.plans.slice(-1)[0].createdAt).toLocaleString() : '-';
+
+  // patients table
+  const tbody = document.querySelector('#patients-table tbody');
+  tbody.innerHTML = store.patients.map(p=>`<tr><td>${p.name}</td><td>${p.age||'-'}</td><td>${p.weight||'-'} kg</td><td><button class="btn-ghost" onclick="openPatientDetail(${p.id})">Abrir</button></td></tr>`).join('') || '<tr><td class="small" colspan="4">Nenhum paciente</td></tr>';
+
+  // food table
+  document.querySelector('#food-table tbody').innerHTML = store.foods.map(f=>`<tr><td>${f.name}</td><td>${f.portion||'-'}</td><td>${f.kcal||0}</td><td>${f.carb||0}</td><td>${f.prot||0}</td><td>${f.fat||0}</td></tr>`).join('') || '<tr><td class="small" colspan="6">Nenhum alimento</td></tr>';
+
+  // patient selects
+  const selects = ['plan-patient-select','evo-patient-select','appt-patient-select','chat-patient-select'];
+  selects.forEach(id=>{
+    const s = document.getElementById(id);
+    if(!s) return;
+    s.innerHTML = '<option value="">-- selecione --</option>' + store.patients.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  });
+
+  // recent plans
+  const rp = document.querySelector('#recent-plans tbody');
+  rp.innerHTML = store.plans.slice(-6).reverse().map(pl=>{
+    const pat = store.patients.find(p=>p.id===pl.patientId) || {name:'-'}; 
+    return `<tr><td>${pat.name}</td><td>Plano</td><td>${new Date(pl.createdAt).toLocaleDateString()}</td><td><button class="btn-ghost" onclick="loadPlan(${pl.id})">Abrir</button></td></tr>`;
+  }).join('') || '<tr><td class="small" colspan="4">Nenhum plano</td></tr>';
+
+  // appointments
+  document.querySelector('#appointments-table tbody').innerHTML = store.appointments.map(a=>{
+    const pat = store.patients.find(p=>p.id===a.patientId) || {name:'-'};
+    return `<tr><td>${pat.name}</td><td>${new Date(a.datetime).toLocaleString()}</td><td><button class="btn-ghost" onclick="removeAppointment(${a.id})">Remover</button></td></tr>`;
+  }).join('') || '<tr><td class="small" colspan="3">Nenhuma consulta</td></tr>';
+
+  // chat
+  const chatBox = document.getElementById('chat-box');
+  chatBox.innerHTML = store.messages.slice(-50).map(m=>{
+    const p = store.patients.find(pt=>pt.id===m.patientId) || {name:'Paciente'};
+    return `<div style="margin-bottom:8px"><div style="font-size:12px;color:var(--muted)">${p.name} · ${new Date(m.createdAt).toLocaleString()}</div><div style="background:#fff;padding:8px;border-radius:8px;margin-top:4px">${m.text}</div></div>`;
+  }).join('');
+
+  // render meals if any
+  renderMeals();
+
+  // update evolution chart when selection exists
+  try{ renderEvolutionChart(); }catch(e){}
+}
+
+function openPatientDetail(id){
+  const store = loadStore();
+  const p = store.patients.find(x=>x.id===id);
+  if(!p) return alert('Paciente não encontrado');
+  // quick detail — for full feature, build dedicated page
+  alert(`Paciente: ${p.name}\\nIdade: ${p.age}\\nPeso: ${p.weight} kg\\nNotas: ${p.notes}`);
+}
+
+function loadPlan(planId){
+  const store = loadStore();
+  const pl = store.plans.find(x=>x.id===planId);
+  if(!pl) return alert('Plano não encontrado');
+  currentMeals = pl.meals || [];
+  navigate('plan-editor');
+}
+
+/* ========== Utilities ========== */
+function removeAppointment(id){
+  const s = loadStore();
+  s.appointments = s.appointments.filter(a=>a.id!==id);
+  saveStore(s); renderAll();
+}
+
+/* ========== Admin helpers for quick demo ========== */
+function loadSampleData(){
+  const s = { patients:[], foods:[], plans:[], evolutions:[], appointments:[], messages:[] };
+  s.patients.push({ id:1, name:'Maria Souza', age:29, weight:72, notes:'Sem restrições', createdAt:new Date().toISOString() });
+  s.patients.push({ id:2, name:'João Lima', age:35, weight:88, notes:'Hipertenso', createdAt:new Date().toISOString() });
+  s.foods.push({ id:101, name:'Arroz branco (100g)', portion:'100g', kcal:130, carb:28, prot:2.7, fat:0.3 });
+  s.foods.push({ id:102, name:'Peito de frango grelhado (100g)', portion:'100g', kcal:165, carb:0, prot:31, fat:3.6 });
+  s.plans.push({ id:Date.now(), patientId:1, meals:[{id:1,name:'Café',items:[{uid:'a1',name:'Arroz branco (100g)',qty:'100g',kcal:130,carb:28,prot:2.7,fat:0.3}]}], createdAt:new Date().toISOString() });
+  s.evolutions.push({ id:Date.now()+1, patientId:1, date:new Date().toISOString().slice(0,10), weight:72 });
+  saveStore(s);
+  renderAll();
+}
+
+/* ========== Init ========== */
+(function init(){
+  // default new plan
+  if(!localStorage.getItem(STORE_KEY)) loadStore();
+  currentMeals = [{ id:1, name:'Café da manhã', items:[] }];
+  renderAll();
+  // initial route
+  navigate('dashboard');
+})();
+</script>
+</body>
+</html>
